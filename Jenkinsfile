@@ -26,17 +26,24 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+        stage('Docker Build and Push') {
+            steps {
+                sh '''
+                    docker build -t ttl.sh/renn-amm:2h .
+                    docker push ttl.sh/renn-amm:2h
+                '''
+            }
+        }
+
+        stage('Deploy to Docker VM') {
             steps {
                 sh '''
                     mkdir -p ~/.ssh
-                    ssh-keyscan -H target >> ~/.ssh/known_hosts
-                    scp -i ~/.ssh/id_ed25519 app/main laborant@target:/tmp/main
-                    ssh -i ~/.ssh/id_ed25519 laborant@target "
-                        sudo mv /tmp/main /opt/myapp/main &&
-                        sudo chown myapp:myapp /opt/myapp/main &&
-                        sudo chmod +x /opt/myapp/main &&
-                        sudo systemctl restart myapp
+                    ssh-keyscan -H docker >> ~/.ssh/known_hosts
+                    ssh -i ~/.ssh/id_ed25519 laborant@docker "
+                        docker pull ttl.sh/renn-amm:2h &&
+                        docker rm -f myapp 2>/dev/null || true &&
+                        docker run -d --name myapp -p 4444:4444 ttl.sh/renn-amm:2h
                     "
                 '''
             }
@@ -46,7 +53,7 @@ pipeline {
             steps {
                 sh '''
                     for i in $(seq 1 10); do
-                        curl -fsS http://target:4444/ && exit 0
+                        curl -fsS http://docker:4444/ && exit 0
                         sleep 3
                     done
                     exit 1
