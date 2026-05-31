@@ -1,10 +1,17 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'golang:1.22'
+        }
+    }
 
     stages {
         stage('Build') {
             steps {
-                sh 'cd app && go build -o main .'
+                sh '''
+                cd app
+                go build -o main .
+                '''
             }
         }
 
@@ -33,5 +40,7 @@ pipeline {
                 '''
             }
         }
+    }
+}
     }
 }
