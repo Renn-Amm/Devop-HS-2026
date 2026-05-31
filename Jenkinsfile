@@ -31,18 +31,17 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                sh '''
-                mkdir -p ~/.ssh
-                ssh-keyscan -H target >> ~/.ssh/known_hosts
+                sshagent (credentials: ['target-ssh']) {
+                    sh '''
+                    scp -o StrictHostKeyChecking=no app/main ubuntu@target:/tmp/main
         
-                scp app/main target:/tmp/main
-        
-                ssh target '
-                    sudo mv /tmp/main /opt/myapp/main
-                    sudo chmod +x /opt/myapp/main
-                    sudo systemctl restart myapp
-                '
-                '''
+                    ssh -o StrictHostKeyChecking=no ubuntu@target '
+                        sudo mv /tmp/main /opt/myapp/main
+                        sudo chmod +x /opt/myapp/main
+                        sudo systemctl restart myapp
+                    '
+                    '''
+                }
             }
         }
 
