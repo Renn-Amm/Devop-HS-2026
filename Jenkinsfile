@@ -18,12 +18,12 @@ pipeline {
         stage('Build') {
             steps {
                 sh '''
-                export PATH=/var/lib/jenkins/go/bin:$PATH
+                export PATH=$HOME/go/bin:$PATH
                 cd app
-        
-                go mod init app || true
-                go mod tidy || true
-        
+
+                go mod init app 2>/dev/null || true
+                go mod tidy
+
                 go build -o main .
                 '''
             }
@@ -31,17 +31,18 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                sshagent (credentials: ['target-ssh']) {
-                    sh '''
-                    scp -o StrictHostKeyChecking=no app/main ubuntu@target:/tmp/main
-        
-                    ssh -o StrictHostKeyChecking=no ubuntu@target '
-                        sudo mv /tmp/main /opt/myapp/main
-                        sudo chmod +x /opt/myapp/main
-                        sudo systemctl restart myapp
-                    '
-                    '''
-                }
+                sh '''
+                mkdir -p ~/.ssh
+                ssh-keyscan -H target >> ~/.ssh/known_hosts
+
+                scp -o StrictHostKeyChecking=no app/main target:/tmp/main
+
+                ssh -o StrictHostKeyChecking=no target '
+                    sudo mv /tmp/main /opt/myapp/main
+                    sudo chmod +x /opt/myapp/main
+                    sudo systemctl restart myapp
+                '
+                '''
             }
         }
 
