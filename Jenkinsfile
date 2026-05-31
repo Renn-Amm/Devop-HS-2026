@@ -1,5 +1,6 @@
 pipeline {
     agent any
+
     stages {
         stage('Setup Go') {
             steps {
@@ -12,6 +13,7 @@ pipeline {
                 '''
             }
         }
+
         stage('Build') {
             steps {
                 sh '''
@@ -23,6 +25,7 @@ pipeline {
                 '''
             }
         }
+
         stage('Docker Build and Push') {
             steps {
                 sh '''
@@ -31,6 +34,7 @@ pipeline {
                 '''
             }
         }
+
         stage('Deploy to Docker VM') {
             steps {
                 sh '''
@@ -44,6 +48,7 @@ pipeline {
                 '''
             }
         }
+
         stage('Health Check') {
             steps {
                 sh '''
