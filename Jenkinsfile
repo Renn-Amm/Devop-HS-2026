@@ -1,15 +1,24 @@
 pipeline {
-    agent {
-        docker {
-            image 'golang:1.22'
-        }
-    }
+    agent any
 
     stages {
+
+        stage('Setup Go') {
+            steps {
+                sh '''
+                curl -LO https://go.dev/dl/go1.22.0.linux-amd64.tar.gz
+                rm -rf $HOME/go
+                tar -C $HOME -xzf go1.22.0.linux-amd64.tar.gz
+                export PATH=$HOME/go/bin:$PATH
+                go version
+                '''
+            }
+        }
 
         stage('Build') {
             steps {
                 sh '''
+                export PATH=$HOME/go/bin:$PATH
                 cd app
                 go build -o main .
                 '''
