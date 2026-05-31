@@ -32,8 +32,11 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
+                mkdir -p ~/.ssh
+                ssh-keyscan -H target >> ~/.ssh/known_hosts
+        
                 scp app/main target:/tmp/main
-
+        
                 ssh target '
                     sudo mv /tmp/main /opt/myapp/main
                     sudo chmod +x /opt/myapp/main
