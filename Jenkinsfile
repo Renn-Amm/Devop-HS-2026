@@ -18,8 +18,12 @@ pipeline {
         stage('Build') {
             steps {
                 sh '''
-                export PATH=$HOME/go/bin:$PATH
+                export PATH=/var/lib/jenkins/go/bin:$PATH
                 cd app
+        
+                go mod init app || true
+                go mod tidy || true
+        
                 go build -o main .
                 '''
             }
