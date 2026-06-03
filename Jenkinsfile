@@ -50,7 +50,7 @@ pipeline {
                         kubectl config use-context k8s
                         kubectl delete pod myapp --ignore-not-found
                         kubectl apply -f k8s_deploy/pod.yaml
-                        kubectl wait --for=condition=Ready pod/myapp --timeout=60s
+                        kubectl wait --for=condition=Ready pod/myapp --timeout=120s
                     '''
                 }
             }
@@ -62,11 +62,12 @@ pipeline {
                     sh '''
                         kubectl config use-context k8s
                         POD_IP=$(kubectl get pod myapp -o jsonpath='{.status.podIP}')
-                        for i in $(seq 1 10); do
-                            curl -fsS http://$POD_IP:4444/ && exit 0
-                            sleep 3
-                        done
-                        exit 1
+                        kubectl run curl-test \
+                            --image=busybox \
+                            --rm \
+                            --restart=Never \
+                            -it \
+                            -- wget -qO- http://$POD_IP:4444/
                     '''
                 }
             }
