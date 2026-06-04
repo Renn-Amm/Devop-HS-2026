@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    parameters {
+        string(name: 'EC2_IP', defaultValue: '100.31.250.93', description: 'EC2 public IP')
+    }
+
     stages {
         stage('Setup Go') {
             steps {
@@ -26,31 +30,30 @@ pipeline {
             }
         }
 
-        stage('Docker Build and Push') {
+        stage('Deploy to EC2') {
             steps {
-                sh '''
-                    docker build -t ttl.sh/renn-amm:2h .
-                    docker push ttl.sh/renn-amm:2h
-                '''
-            }
-        }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
+                withCredentials([sshUserPrivateKey(
+                    credentialsId: 'ec2-ssh-key',
+                    keyFileVariable: 'SSH_KEY',
+                    usernameVariable: 'SSH_USER'
+                )]) {
                     sh '''
-                        kubectl config set-cluster k8s \
-                            --server=https://kubernetes:6443 \
-                            --insecure-skip-tls-verify=true
-                        kubectl config set-credentials jenkins-robot \
-                            --token=$K8S_TOKEN
-                        kubectl config set-context k8s \
-                            --cluster=k8s \
-                            --user=jenkins-robot
-                        kubectl config use-context k8s
-                        kubectl delete pod myapp --ignore-not-found
-                        kubectl apply -f k8s_deploy/pod.yaml
-                        kubectl wait --for=condition=Ready pod/myapp --timeout=120s
+                        mkdir -p ~/.ssh
+                        ssh-keyscan -H $EC2_IP >> ~/.ssh/known_hosts
+                        scp -i $SSH_KEY app/main $SSH_USER@$EC2_IP:/tmp/main
+                        scp -i $SSH_KEY aws_deploy/myapp.service $SSH_USER@$EC2_IP:/tmp/myapp.service
+                        ssh -i $SSH_KEY $SSH_USER@$EC2_IP "
+                            sudo id -u myapp &>/dev/null || sudo useradd -r -s /bin/false myapp &&
+                            sudo mkdir -p /opt/myapp &&
+                            sudo chown myapp:myapp /opt/myapp &&
+                            sudo mv /tmp/main /opt/myapp/main &&
+                            sudo chown myapp:myapp /opt/myapp/main &&
+                            sudo chmod +x /opt/myapp/main &&
+                            sudo mv /tmp/myapp.service /etc/systemd/system/myapp.service &&
+                            sudo systemctl daemon-reload &&
+                            sudo systemctl enable myapp &&
+                            sudo systemctl restart myapp
+                        "
                     '''
                 }
             }
@@ -58,18 +61,13 @@ pipeline {
 
         stage('Health Check') {
             steps {
-                withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
-                    sh '''
-                        kubectl config use-context k8s
-                        POD_IP=$(kubectl get pod myapp -o jsonpath='{.status.podIP}')
-                        kubectl run curl-test \
-                            --image=busybox \
-                            --rm \
-                            --restart=Never \
-                            -it \
-                            -- wget -qO- http://$POD_IP:4444/
-                    '''
-                }
+                sh '''
+                    for i in $(seq 1 10); do
+                        curl -fsS http://$EC2_IP:4444/ && exit 0
+                        sleep 5
+                    done
+                    exit 1
+                '''
             }
         }
     }

@@ -1,0 +1,12 @@
+[Unit]
+Description=My Go App
+After=network.target
+
+[Service]
+User=myapp
+ExecStart=/opt/myapp/main
+Restart=on-failure
+WorkingDirectory=/opt/myapp
+
+[Install]
+WantedBy=multi-user.target
