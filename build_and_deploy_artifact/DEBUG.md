@@ -113,6 +113,7 @@ After=network.target
 User=myapp
 ExecStart=/opt/myapp/main
 Restart=on-failure
+RestartSec=5
 WorkingDirectory=/opt/myapp
 
 [Install]
